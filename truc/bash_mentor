@@ -1,0 +1,11 @@
+
+host=`uname -n`
+export PRECISION_HOME=/softslin/precision2016_1_1/Mgc_home/
+export MODELSIM_HOME=/softslin/modelsim10_5c/modeltech/
+#export CATAHOME=/softslin/catapultc10_0a/64bit/Mgc_home
+#export CATAHOME=/softslin/catapultc10_1b/Mgc_home
+export CATAHOME=/softslin/catapultc10_4b/Mgc_home
+export PATH=$PATH:$MODELSIM_HOME/bin:$PRECISION_HOME/bin:$CATAHOME/bin/
+export LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/:$LIBRARY_PATH
+
+
