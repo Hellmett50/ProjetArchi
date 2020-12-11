@@ -2,6 +2,9 @@ import numpy as np
 import os
 import sys
 import pdb
+#import matplotlib.pyplot as plt
+#import torch
+import tensorflow as tf
 
 def readPgm(name):
     img=open(name,'r')
@@ -46,19 +49,17 @@ def cutPgm3224(pgmtab):
             newtab.append(pgmtab[i])
     return newtab
 
-def writePgm(name):
-    pgm = readPgm("cifar10_voilier_bin.pgm")
-    pgm=cutPgm3224(pgm)
+def writePgm(name, pgm, c):
+    #pgm = readPgm("cifar10_test_bin.pgm")
+    #pgm=cutPgm3224(pgm)
     img=open(name, 'w')
     img.write("P2\n")
-    img.write("24 24\n")
+    img.write(str(pgm.shape[0])+" "+str(pgm.shape[1])+"\n")
     img.write("255\n")
-    for i in pgm:
-        img.write(str(i)+" ")
+    for i in range(pgm.shape[0]):
+        for j in range(pgm.shape[1]):
+            img.write(str(int(pgm[i][j][c]))+" ")
     img.close()
-
-def RELU(a):
-    return max(0,a)
 
 def readCoeffCNN(name, length):
     CNNfile = open("CNN_coeff_3x3.txt")
@@ -114,6 +115,7 @@ def readCoeffCNN(name, length):
         line = CNNfile.readline()
         linesplit = line.split()
     CNNfile.close()
+    weights[i][j][k] = coeff
     return weights, biases
 
 def readMatrixCNN(name):
@@ -164,27 +166,34 @@ def listtoarray(list):
     return list2d
 
 def conv(I, K, b):
-    print(K.shape)
-    print(K.shape[2])
+    #print(K.shape)
+    #print(K.shape[2])
     S = np.zeros([I.shape[0], I.shape[1], len(b)])
+    M = np.zeros([3, 3, len(b)])
     for c in range(len(b)):
-        for j in range(I.shape[1]):
-            for i in range(I.shape[0]):
+        for i in range(I.shape[0]):
+            for j in range(I.shape[1]):
                 for l in range(K.shape[2]):
-                    for m in range(-1, K.shape[0]-1):
-                        for n in range(-1, K.shape[1]-1):
+                    for m in range(K.shape[0]):
+                        for n in range(K.shape[1]):
                             #print("m", m, "n", n, "i+m", i+m, "j+n", j+n)
-                            if 0 <= i+m < I.shape[0] and 0 <= j+n < I.shape[1]:
-                                #print("S", S[i][j][c])
+                            if 0 < i+m <= I.shape[0] and 0 < j+n <= I.shape[1]:
+                                M[m][n][c] = K[m][n][l][c]
+                                S[i][j][c] += I[i+m-1][j+n-1][l]*K[m][n][l][c]
                                 #if S[i][j][c] > 10**10:
+                                    #print("S", S[i][j][c])
+                                    #print(S.shape)
                                     #pdb.set_trace()
+                                    #S[i][j][c] = 255
                                     #print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
                                     #print("i",i)
                                     #print("j",j)
                                     #print("c",c)
-                                S[i][j][c] += I[i+m][j+n][l]*K[m][n][l][c]
+                                #print("S(",i,",",j,",",c,") += I[", i+m-1,"][", j+n-1, "][", l, "]*K[", m, "][", n, "][", l, "][", c, "]")
+                                #print(S[i][j][c], " += ", I[i+m-1][j+n-1][l], "*", K[m][n][l][c])
                 #print("S(",i,",",j,",",c,")=", S[i][j][c])
-                S[i][j][c] = RELU(S[i][j][c] + b[c])
+                S[i][j][c] = max(S[i][j][c] + b[c], 0)
+                #print(M[:][:][c], "M"+str(m)+str(n))
     return S
 
 def MaxPool(S):
@@ -220,23 +229,97 @@ def MaxPool(S):
                 M[m][n][c] = max(S00, S01, S02, S10, S[2*m][2*n][c], S12, S20, S21, S22)
     return M
 
+def printtrace(pathconv, C, pathmax, M):
+    for c in range(C.shape[2]):
+        writePgm(pathconv+str(c), C, c)
+        writePgm(pathmax+str(c), M, c)
+
+
 def whatIs(name):
-    f = open("cifar10_data/cifar-10-batches-bin/batches.meta.txt")
     K, b = readCoeffCNN("conv1", 3)
     K2, b2 = readCoeffCNN("conv2", 64)
     K3, b3 = readCoeffCNN("conv3", 32)
     l = readMatrixCNN("local3")
-    num = np.reshape(MaxPool(conv(MaxPool(conv(MaxPool(conv(readPpm(sys.argv[1]), K, b)), K2, b2)), K3, b3)), 180) @ l
-    print(["airplane", "automobile", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck"])
-    print(num)
-    for i in range(len(num)):
-        whatitis = f.readline()
-        if num[i] == max(num):
-            return i, whatitis, num[i]
-    return "WTF"
+    V = readPpm(name)
+    #print(V)
+    C = conv(V, K, b)
+    #print(C)
+    M = MaxPool(C)
+    #print(M)
+    printtrace("img/conv1/cifar10test", C, "img/max1/cifar10test", M)
+    C2 = conv(M, K2, b2)
+    #print(C2)
+    M2 = MaxPool(C2)
+    #print(M2)
+    printtrace("img/conv2/cifar10test", C2, "img/max2/cifar10test", M2)
+    C3 = conv(M2, K3, b3)
+    #print(C3)
+    M3 = MaxPool(C3)
+    #print(M3)
+    printtrace("img/conv3/cifar10test", C3, "img/max3/cifar10test", M3)
+    R = np.reshape(M3, 180)
+    #print(R)
+    out = R @ l
+
+    val = ["airplane", "automobile", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck"]
+    #print(val)
+    #print(out)
+    for i in range(len(out)):
+        if out[i] == max(out):
+            return out, val[i]
+    return 0
+
+def tf_whatIs(name):
+    K, b = readCoeffCNN("conv1", 3)
+    K2, b2 = readCoeffCNN("conv2", 64)
+    K3, b3 = readCoeffCNN("conv3", 32)
+    l = readMatrixCNN("local3")
+    V = readPpm(name)
+
+    K = tf.constant_initializer(K)
+    b = tf.constant_initializer(b)
+    K2 = tf.constant_initializer(K2)
+    b2 = tf.constant_initializer(b2)
+    K3 = tf.constant_initializer(K3)
+    b3 = tf.constant_initializer(b3)
+    maxpool2d = tf.keras.layers.MaxPool2D(pool_size=(3, 3), strides = (2, 2), padding = 'same')
+    V = np.reshape(V, (1, 24, 24, 3))
+    C = tf.keras.layers.Conv2D(64, (3, 3), activation='relu', padding='same', input_shape=V.shape[1:], use_bias=True, kernel_initializer=K, bias_initializer=b)(V)
+    print(C.shape)
+    M = maxpool2d(C)
+    print(M.shape)
+    printtrace("img/conv1/cifar10test", C[0], "img/max1/cifar10test", M[0])
+    C2 = tf.keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same', input_shape=M.shape[1:], use_bias=True, kernel_initializer=K2, bias_initializer=b2)(M)
+    print(C2.shape)
+    M2 = maxpool2d(C2)
+    print(M2.shape)
+    printtrace("img/conv2/cifar10test", C2[0], "img/max2/cifar10test", M2[0])
+    M2 = np.reshape(M2, (1, 6, 6, 32))
+    C3 = tf.keras.layers.Conv2D(20, (3, 3), activation='relu', padding='same', input_shape=M2.shape[1:], use_bias=True, kernel_initializer=K3, bias_initializer=b3)(M2)
+    print(C3.shape)
+    M3 = maxpool2d(C3)
+    print(M3.shape)
+    printtrace("img/conv3/cifar10test", C3[0], "img/max3/cifar10test", M3[0])
+    R = np.reshape(M3, 180)
+    #print(R)
+    out = R @ l
+    #out = tf.contrib.layers.fully_connected(R, 10, activation_fn=None, weights_initializer=tf.constant_initializer(l),)
+    val = ["airplane", "automobile", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck"]
+    print(val)
+    print(out)
+    for i in range(len(out)):
+        if out[i] == max(out):
+            return out, val[i]
+            #return val[i]
+
+    #out = np.reshape(MaxPool(conv(MaxPool(conv(MaxPool(conv(readPpm(sys.argv[1]), K, b)), K2, b2)), K3, b3)), 180) @ l
+
+
+    return 0
 
 
 """
+
 I = np.array([[[1,160],[2,150],[3,140],[4,130]],
             [[5,120],[6,110],[7,100],[8,90]],
             [[9,80],[10,70],[11,60],[12,50]],
@@ -251,64 +334,20 @@ M = MaxPool(I)
 print("M", M)
 C = conv(I, K, b)
 print(C)
-"""
 
 
-print(whatIs(sys.argv[1]))
+itis = whatIs(sys.argv[1])
+#print(sys.argv[1][12:]+"="+itis)
+tfitis = tf_whatIs(sys.argv[1])
+print(itis, tfitis)
 """
-V = readPpm(sys.argv[1])
-print("VVVVVVVVVVVVVV---------------------------------------------------------")
-print(V)
 K, b = readCoeffCNN("conv1", 3)
-print("KKKKKKKKKKKKKKK---------------------------------------------------------")
-print(K)
-C = conv(V, K, b)
-print("CCCCCCCCCCCCCC---------------------------------------------------------")
-print(C)
-M = MaxPool(C, 12, 12)
-print("MMMMMMMMMMMMMM---------------------------------------------------------")
-print(M)
 K2, b2 = readCoeffCNN("conv2", 64)
-print("KKKKKKKKKKKKKKK2222222222222222222---------------------------------------------------------")
-print(K2)
-C2 = conv(M, K2, b2)
-print("CCCCCCCCCCCCCCC222222222222222222---------------------------------------------------------")
-print(C2)
-M2 = MaxPool(C2, 6, 6)
-print("MMMMMMMMMMMMMMM222222222222222222---------------------------------------------------------")
-print(M2)
 K3, b3 = readCoeffCNN("conv3", 32)
-print("KKKKKKKKKKKKKK33333333333333333---------------------------------------------------------")
+
+print("K")
+print(K)
+print("K2")
+print(K2)
+print("K3")
 print(K3)
-C3 = conv(M2, K3, b3)
-print("CCCCCCCCCCCCC33333333333333333--------------------------------------------------------")
-print(C3)
-np.shape(C3)
-M3 = MaxPool(C3, 3, 3)
-print("MMMMMMMMMMMMM-33333333333333333---------------------------------------------------------")
-print(M3)
-M3 = np.reshape(M3, 180)
-print("MMRESHHHHH---------------------------------------------------------")
-print(M3)
-l = readMatrixCNN("local3")
-l = np.transpose(l)
-print("LLLLLLLLLL---------------------------------------------------------")
-print(l)
-res = l @ M3
-print(res)
-
-A = np.ones([24,24,64])
-B = np.ones([3,3,64,32])
-C = np.ones([32])
-print("A", A, "\nB", B, "\nC", C)
-D = conv(A, B, C)
-print("\nD", np.shape(D))
-print(D)
-"""
-
-
-#print(conv(readPpm("cifar10_voilier_bin.ppm"), K, b))
-#print(readPpm("cifar10_voilier_bin.ppm"))
-#print(listtoarray(cutPgm3224(readPgm("cifar10_voilier_bin.pgm"))))
-#writePgm("cifar10_voilier_resize.pgm")
-#biases, weights = readCoeffCNN("conv1")
