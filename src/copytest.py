@@ -3,7 +3,6 @@ import os
 import sys
 import pdb
 #import matplotlib.pyplot as plt
-#import torch
 import tensorflow as tf
 
 def readPgm(name):
@@ -87,7 +86,7 @@ def readCoeffCNN(name, length):
     i = 0
     j = 0
     k = 0
-    weights = np.empty([3, 3, length, len(biases)])
+    weights = np.zeros([3, 3, length, len(biases)])
     coeff = []
     line = CNNfile.readline()
     linesplit = line.split()[1:]
@@ -264,9 +263,21 @@ def whatIs(name):
     val = ["airplane", "automobile", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck"]
     #print(val)
     #print(out)
+    out2 = out
+    for i in range(len(out)):
+        for j in range(len(out) - i - 1):
+            if out[j] > out[j+1]:
+                out[j], out[j+1] = out[j+1], out[j]
+                val[j], val[j+1] = val[j+1], val[j]
+    return val, out2
+
+
+    """
     for i in range(len(out)):
         if out[i] == max(out):
             return out, val[i]
+            #return val[i]
+    """
     return 0
 
 def tf_whatIs(name):
@@ -305,20 +316,44 @@ def tf_whatIs(name):
     out = R @ l
     #out = tf.contrib.layers.fully_connected(R, 10, activation_fn=None, weights_initializer=tf.constant_initializer(l),)
     val = ["airplane", "automobile", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck"]
-    print(val)
-    print(out)
+    #print(val)
+    #print(out)
+    out2 = out
+    for i in range(len(out)):
+        for j in range(len(out) - i - 1):
+            if out[j] > out[j+1]:
+                out[j], out[j+1] = out[j+1], out[j]
+                val[j], val[j+1] = val[j+1], val[j]
+    return val, out2
+
+
+    """
     for i in range(len(out)):
         if out[i] == max(out):
             return out, val[i]
             #return val[i]
-
+    """
     #out = np.reshape(MaxPool(conv(MaxPool(conv(MaxPool(conv(readPpm(sys.argv[1]), K, b)), K2, b2)), K3, b3)), 180) @ l
-
-
     return 0
 
+tf.keras.backend.set_floatx('float64')
 
+itis = whatIs(sys.argv[1])
+print(sys.argv[1][12:-4])
+print(itis[0])
+tfitis = tf_whatIs(sys.argv[1])
+print(tfitis[0])
+print(sys.argv[1][12:-4])
 """
+print(itis[0])
+print(sys.argv[1][12:-4]+"="+itis[1])
+print(sys.argv[1][12:-4]+"="+tfitis[1])
+
+trace = open("trace", 'a')
+trace.write(sys.argv[1][12:-4]+"="+itis[1]+'\n')
+trace.close()
+
+
 
 I = np.array([[[1,160],[2,150],[3,140],[4,130]],
             [[5,120],[6,110],[7,100],[8,90]],
@@ -336,18 +371,4 @@ C = conv(I, K, b)
 print(C)
 
 
-itis = whatIs(sys.argv[1])
-#print(sys.argv[1][12:]+"="+itis)
-tfitis = tf_whatIs(sys.argv[1])
-print(itis, tfitis)
 """
-K, b = readCoeffCNN("conv1", 3)
-K2, b2 = readCoeffCNN("conv2", 64)
-K3, b3 = readCoeffCNN("conv3", 32)
-
-print("K")
-print(K)
-print("K2")
-print(K2)
-print("K3")
-print(K3)
